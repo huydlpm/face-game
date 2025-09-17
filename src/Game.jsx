@@ -132,17 +132,8 @@ export default function Game() {
   return (
     <div className="game-root">
       {/* Audio elements */}
-      <audio
-        ref={bgmRef}
-        src={`${import.meta.env.BASE_URL}audio/bgm - cut.mp3`}
-        loop
-        preload="auto"
-      />
-      <audio
-        ref={correctRef}
-        src={`${import.meta.env.BASE_URL}audio/correct - cut.mp3`}
-        preload="auto"
-      />
+      <audio ref={bgmRef} src="./audio/bgm_cut.mp3" loop preload="auto" />
+      <audio ref={correctRef} src="./audio/correct_cut.mp3" preload="auto" />
 
       {/* Thanh tiêu đề câu hỏi kiểu 'Ai là triệu phú' */}
       <div className="millionaire-topbar">
@@ -161,11 +152,7 @@ export default function Game() {
 
       {/* Ảnh + overlay */}
       <div className="photo-wrapper">
-        <img
-          src={`${import.meta.env.BASE_URL}group.png`}
-          alt="Group"
-          className="group-photo"
-        />
+        <img src="./group.png" alt="Group" className="group-photo" />
 
         <div className="overlay">
           {positions.map(({ id, left, top }) => {
