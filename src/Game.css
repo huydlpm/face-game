@@ -9,7 +9,6 @@
   position: relative;
   overflow-x: hidden;
 }
-
 .game-root::before {
   content: "";
   position: fixed;
@@ -25,7 +24,6 @@
   animation: rotateLight 30s linear infinite;
   z-index: 0;
 }
-
 @keyframes rotateLight {
   from {
     transform: rotate(0deg);
@@ -44,7 +42,6 @@
   justify-content: center;
   padding: 2px 8px;
 }
-
 .question-pill {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -60,13 +57,11 @@
   min-width: 420px;
   max-width: 84vw;
 }
-
 .question-pill.done {
   justify-content: center;
   grid-template-columns: 1fr;
   text-align: center;
 }
-
 .question-number {
   font-weight: 800;
   letter-spacing: 0.5px;
@@ -74,7 +69,6 @@
   font-size: 25px;
   margin-right: 10px;
 }
-
 .question-lines {
   display: grid;
   gap: 2px;
@@ -103,34 +97,32 @@
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  max-width: 1200px;
 }
-
 .group-photo {
   width: 100%;
   display: block;
   user-select: none;
 }
-
 .overlay {
   position: absolute;
   inset: 0;
   pointer-events: auto;
 }
 
-/* Hotspot luôn có pointer (Cách B) */
+/* Hotspot */
 .hotspot {
   position: absolute;
   transform: translate(-50%, -50%);
-  cursor: pointer; /* tất cả đều là pointer để không lộ hint */
+  cursor: pointer;
   outline: none;
 }
-
 .hotspot:focus-visible {
   box-shadow: 0 0 0 3px rgba(90, 160, 255, 0.75);
   border-radius: 999px;
 }
 
-/* Mặt nạ emoji (responsive nhẹ) */
+/* Mặt nạ emoji */
 .mask {
   --mask-size: clamp(56px, 7.2vw, 86px);
   width: var(--mask-size);
@@ -144,7 +136,7 @@
   place-items: center;
   opacity: 0.95;
   transition: opacity 0.7s ease;
-  pointer-events: none; /* click vào hotspot cha */
+  pointer-events: none;
   box-shadow: 0 6px 22px rgba(0, 0, 0, 0.45),
     0 0 0 3px rgba(255, 255, 255, 0.08) inset;
 }
@@ -152,7 +144,7 @@
   opacity: 0;
 }
 
-/* Highlight ring khi vừa mở */
+/* Highlight ring */
 .highlight-ring {
   position: absolute;
   width: calc(var(--mask-size) + 24px);
@@ -181,7 +173,7 @@
   }
 }
 
-/* Nút điều khiển */
+/* Controls */
 .controls {
   margin-top: 16px;
   display: flex;
@@ -189,11 +181,13 @@
   align-items: center;
   flex-wrap: wrap;
   color: #e9eefc;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 .spacer {
   flex: 1;
 }
-
 .btn {
   padding: 8px 16px;
   border-radius: 8px;
@@ -201,8 +195,7 @@
   background: rgba(255, 255, 255, 0.08);
   color: #e9eefc;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.05s ease, box-shadow 0.2s ease,
-    opacity 0.2s ease;
+  transition: background 0.2s, transform 0.05s, box-shadow 0.2s, opacity 0.2s;
   backdrop-filter: blur(2px);
 }
 .btn:hover {
@@ -212,13 +205,13 @@
 .btn:active {
   transform: translateY(1px);
 }
-.btn:disabled {
+.btn:disabled,
+.btn[aria-disabled="true"] {
   opacity: 0.55;
   cursor: not-allowed;
   box-shadow: none;
   filter: grayscale(0.2);
 }
-
 .btn-primary {
   background: linear-gradient(90deg, #2a73ff, #4ea2ff);
   border-color: #3aa3ff;
@@ -264,7 +257,6 @@
   pointer-events: none;
   z-index: 0;
 }
-
 .start-card {
   position: relative;
   z-index: 1;
@@ -337,7 +329,7 @@
   }
 }
 
-/* ===== Wrong Popup ===== */
+/* Wrong Popup */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -355,7 +347,6 @@
   -webkit-backdrop-filter: blur(4px);
   animation: fadeIn 0.2s ease;
 }
-
 .modal-card {
   width: min(420px, 92vw);
   background: linear-gradient(
@@ -372,15 +363,13 @@
   color: #ffeef0;
   animation: popUp 0.25s ease;
 }
-
 .modal-card h3 {
-  margin: 0 0 8px 0;
+  margin: 0 0 8px;
   font-size: 22px;
   font-weight: 800;
   color: #ffcccc;
   text-shadow: 0 0 10px rgba(255, 120, 120, 0.4);
 }
-
 .modal-sub.zh {
   font-size: 18px;
   opacity: 0.95;
@@ -389,9 +378,16 @@
     "Source Han Sans SC", system-ui, -apple-system, "Segoe UI", Roboto, Arial,
     sans-serif;
 }
-
 .modal-actions {
   display: flex;
   justify-content: center;
   gap: 10px;
+}
+
+/* Reduce motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
 }

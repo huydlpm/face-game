@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import "./Game.css";
 
+// ===== DỮ LIỆU =====
 const questions = [
   {
     id: 1,
@@ -42,13 +43,20 @@ const positions = [
 
 const emojis = ["😀", "😁", "😂", "🤣", "😃", "😄", "😅", "😆", "😉"];
 
+// ===== Asset trong src/assets =====
+import bgmUrl from "./assets/audio/bgm_cut.mp3";
+import correctUrl from "./assets/audio/correct_cut.mp3";
+import wrongUrl from "./assets/audio/wrong.mp3";
+import groupImg from "./assets/images/group.png";
+
 export default function Game() {
-  const [revealed, setRevealed] = useState([]);
+  // Trạng thái game
+  const [revealed, setRevealed] = useState(() => new Set());
   const [hidden, setHidden] = useState({});
   const [justRevealed, setJustRevealed] = useState([]);
   const [step, setStep] = useState(0);
 
-  // NEW: trạng thái popup “sai”
+  // Popup “sai”
   const [wrongOpen, setWrongOpen] = useState(false);
 
   // Audio
@@ -58,13 +66,21 @@ export default function Game() {
   const correctRef = useRef(null);
   const wrongRef = useRef(null);
 
+  // Helper & timers
   const timersRef = useRef([]);
 
   const isGameDone = step >= questions.length;
-  const currentFaces = !isGameDone ? questions[step].faces : [];
-  const remainingFaces = currentFaces.filter((id) => !revealed.includes(id));
+  const currentFaces = useMemo(
+    () => (!isGameDone ? questions[step].faces : []),
+    [isGameDone, step]
+  );
+  const remainingFaces = useMemo(
+    () => currentFaces.filter((id) => !revealed.has(id)),
+    [currentFaces, revealed]
+  );
   const isCurrentQuestionDone = !isGameDone && remainingFaces.length === 0;
 
+  // Ẩn mask sau khi reveal (fade-out)
   useEffect(() => {
     timersRef.current.forEach(clearTimeout);
     timersRef.current = [];
@@ -79,25 +95,67 @@ export default function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revealed, hidden]);
 
-  // Đóng popup khi nhấn Escape
+  // Đóng popup khi Escape + trap focus trong modal
   useEffect(() => {
     if (!wrongOpen) return;
+
     const onKey = (e) => {
       if (e.key === "Escape") setWrongOpen(false);
+      if (e.key === "Tab") {
+        const focusables = Array.from(
+          document.querySelectorAll(
+            '.modal-card button, .modal-card [tabindex="0"], .modal-card a[href]'
+          )
+        );
+        if (focusables.length === 0) return;
+        const idx = focusables.indexOf(document.activeElement);
+        e.preventDefault();
+        const next = e.shiftKey
+          ? (idx - 1 + focusables.length) % focusables.length
+          : (idx + 1) % focusables.length;
+        focusables[next].focus();
+      }
     };
+
+    document.querySelector(".modal-card .btn")?.focus();
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [wrongOpen]);
 
+  // Cleanup khi UNMOUNT
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+      timersRef.current = [];
+      [bgmRef, correctRef, wrongRef].forEach((r) => {
+        if (r.current) {
+          r.current.pause();
+          r.current.currentTime = 0;
+        }
+      });
+    };
+  }, []);
+
+  // Pause nhạc khi tab ẩn, play lại khi hiện (nếu bgmOn)
+  useEffect(() => {
+    const onVis = () => {
+      if (document.hidden) bgmRef.current?.pause();
+      else if (bgmOn) bgmRef.current?.play().catch(() => {});
+    };
+    document.addEventListener("visibilitychange", onVis);
+    return () => document.removeEventListener("visibilitychange", onVis);
+  }, [bgmOn]);
+
+  // Điều khiển
   const handleStart = async () => {
     setReady(true);
     try {
       if (bgmRef.current) {
-        bgmRef.current.volume = 0.2;
-        await bgmRef.current.play();
+        bgmRef.current.volume = 0.2; // cố định, không có slider
+        if (bgmOn) await bgmRef.current.play();
       }
     } catch {
-      console.log("");
+      //
     }
   };
 
@@ -111,43 +169,37 @@ export default function Game() {
         await bgmRef.current.play();
         setBgmOn(true);
       } catch {
-        console.log("");
+        //
       }
     }
   };
 
-  // OPEN ONE FACE
   const openOneFace = (id) => {
     if (isGameDone) return;
-
-    // Nếu click vào mặt KHÔNG thuộc câu hiện tại -> hiện popup báo sai
     if (!currentFaces.includes(id)) {
       setWrongOpen(true);
-
       try {
         if (wrongRef.current) {
           wrongRef.current.currentTime = 0;
           wrongRef.current.play();
         }
-      } catch (e) {
-        console.warn("Play wrong blocked:", e);
+      } catch {
+        //
       }
       return;
     }
+    if (revealed.has(id)) return;
 
-    if (revealed.includes(id)) return;
-
-    setRevealed((prev) => [...prev, id]);
+    setRevealed((prev) => new Set(prev).add(id));
     setJustRevealed([id]);
 
-    // âm correct mỗi lần mở đúng
     try {
       if (correctRef.current) {
         correctRef.current.currentTime = 0;
         correctRef.current.play();
       }
     } catch {
-      console.log("");
+      //
     }
 
     const t = setTimeout(() => setJustRevealed([]), 1500);
@@ -167,7 +219,7 @@ export default function Game() {
   };
 
   const resetGame = () => {
-    setRevealed([]);
+    setRevealed(new Set());
     setHidden({});
     setJustRevealed([]);
     setStep(0);
@@ -176,120 +228,141 @@ export default function Game() {
     timersRef.current = [];
   };
 
+  const currentQ = !isGameDone ? questions[step] : null;
+
   return (
     <div className="game-root">
       {/* Audio */}
-      <audio ref={bgmRef} src="./audio/bgm_cut.mp3" loop preload="auto" />
-      <audio ref={correctRef} src="./audio/correct_cut.mp3" preload="auto" />
-      <audio ref={wrongRef} src="./audio/wrong.mp3" />
+      <audio ref={bgmRef} src={bgmUrl} loop preload="auto" />
+      <audio ref={correctRef} src={correctUrl} preload="auto" />
+      <audio ref={wrongRef} src={wrongUrl} />
 
-      {/* Topbar */}
-      <div className="millionaire-topbar">
-        {!isGameDone ? (
-          <div className="question-pill">
-            <div className="question-number">CÂU {questions[step].id}</div>
-            <div className="question-lines">
-              <div className="q-vi">{questions[step].vi}</div>
-              <div className="q-zh">{questions[step].zh}</div>
+      {/* Ẩn nền khỏi SR khi popup mở */}
+      <div className="app-content" aria-hidden={wrongOpen ? "true" : "false"}>
+        {/* Topbar */}
+        <div className="millionaire-topbar">
+          {!isGameDone ? (
+            <div
+              className="question-pill"
+              role="region"
+              aria-label="Câu hỏi hiện tại"
+            >
+              <div className="question-number">CÂU {currentQ.id}</div>
+              <div className="question-lines" aria-live="polite">
+                <div className="q-vi">{currentQ.vi}</div>
+                <div className="q-zh">{currentQ.zh}</div>
+              </div>
+            </div>
+          ) : (
+            <div className="question-pill done">🎉 Hoàn thành trò chơi!</div>
+          )}
+        </div>
+
+        {/* Ảnh + overlay */}
+        <div className="photo-wrapper">
+          <img
+            src={groupImg}
+            alt=""
+            role="img"
+            aria-label="Ảnh nhóm với 9 vị trí gương mặt"
+            className="group-photo"
+            draggable="false"
+          />
+          <div className="overlay">
+            {positions.map(({ id, left, top }) => {
+              const isRevealed = revealed.has(id);
+              const fullyHidden = hidden[id];
+              const isNew = justRevealed.includes(id);
+              return (
+                <div
+                  key={id}
+                  className="hotspot"
+                  style={{ left: `${left}%`, top: `${top}%` }}
+                  onClick={() => openOneFace(id)}
+                  role="button"
+                  aria-label={`Mặt ${id}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      openOneFace(id);
+                    }
+                  }}
+                >
+                  {isNew && <div className="highlight-ring" />}
+                  {!fullyHidden && (
+                    <div className={`mask ${isRevealed ? "fade-out" : ""}`}>
+                      {emojis[id - 1]}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="controls">
+          {!isGameDone ? (
+            <>
+              <button className="btn" onClick={handleRevealRandom}>
+                Mở 1 gương mặt (ngẫu nhiên)
+              </button>
+
+              <button
+                className="btn btn-primary"
+                onClick={handleNext}
+                disabled={!isCurrentQuestionDone}
+                aria-disabled={!isCurrentQuestionDone}
+                title={
+                  isCurrentQuestionDone
+                    ? "Sang câu tiếp theo"
+                    : "Hãy mở đủ các gương mặt của câu này trước"
+                }
+              >
+                Tiếp tục
+                {!isCurrentQuestionDone && remainingFaces.length > 0
+                  ? ` (${remainingFaces.length} còn lại)`
+                  : ""}
+              </button>
+
+              <button
+                className="btn"
+                onClick={resetGame}
+                title="Chơi lại từ đầu"
+              >
+                Reset
+              </button>
+            </>
+          ) : (
+            <button className="btn btn-primary" onClick={resetGame}>
+              Chơi lại
+            </button>
+          )}
+
+          <div className="spacer" />
+
+          <button className="btn" onClick={toggleBgm}>
+            {bgmOn ? "Tắt nhạc nền" : "Bật nhạc nền"}
+          </button>
+        </div>
+
+        {/* Start overlay */}
+        {!ready && (
+          <div className="start-overlay" role="dialog" aria-modal="true">
+            <div className="start-card">
+              <h2>THÂN NÀO ĐẦU NẤY</h2>
+              <h2>第一个游戏：对号入头</h2>
+              <p>
+                Nhấn <b>Bắt đầu</b> để vào game.
+              </p>
+              <button className="btn btn-primary" onClick={handleStart}>
+                Bắt đầu
+              </button>
             </div>
           </div>
-        ) : (
-          <div className="question-pill done">🎉 Hoàn thành trò chơi!</div>
         )}
       </div>
-
-      {/* Ảnh + overlay */}
-      <div className="photo-wrapper">
-        <img src="./group.png" alt="Group" className="group-photo" />
-        <div className="overlay">
-          {positions.map(({ id, left, top }) => {
-            const isRevealed = revealed.includes(id);
-            const fullyHidden = hidden[id];
-            const isNew = justRevealed.includes(id);
-            return (
-              <div
-                key={id}
-                className="hotspot"
-                style={{ left: `${left}%`, top: `${top}%` }}
-                onClick={() => openOneFace(id)}
-                role="button"
-                aria-label={`Mặt ${id}`}
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    openOneFace(id);
-                  }
-                }}
-              >
-                {isNew && <div className="highlight-ring" />}
-                {!fullyHidden && (
-                  <div className={`mask ${isRevealed ? "fade-out" : ""}`}>
-                    {emojis[id - 1]}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Controls */}
-      <div className="controls">
-        {!isGameDone ? (
-          <>
-            <button className="btn" onClick={handleRevealRandom}>
-              Mở 1 gương mặt (ngẫu nhiên)
-            </button>
-
-            <button
-              className="btn btn-primary"
-              onClick={handleNext}
-              disabled={!isCurrentQuestionDone}
-              title={
-                isCurrentQuestionDone
-                  ? "Sang câu tiếp theo"
-                  : "Hãy mở đủ các gương mặt của câu này trước"
-              }
-            >
-              Tiếp tục
-              {!isCurrentQuestionDone && remainingFaces.length > 0
-                ? ` (${remainingFaces.length} còn lại)`
-                : ""}
-            </button>
-
-            <button className="btn" onClick={resetGame} title="Chơi lại từ đầu">
-              Reset
-            </button>
-          </>
-        ) : (
-          <button className="btn btn-primary" onClick={resetGame}>
-            Chơi lại
-          </button>
-        )}
-
-        <div className="spacer" />
-
-        <button className="btn" onClick={toggleBgm}>
-          {bgmOn ? "Tắt nhạc nền" : "Bật nhạc nền"}
-        </button>
-      </div>
-
-      {/* Start overlay */}
-      {!ready && (
-        <div className="start-overlay">
-          <div className="start-card">
-            <h2>THÂN NÀO ĐẦU NẤY</h2>
-            <h2>第一个游戏：对号入头</h2>
-            <p>
-              Nhấn <b>Bắt đầu</b> để vào game.
-            </p>
-            <button className="btn btn-primary" onClick={handleStart}>
-              Bắt đầu
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* WRONG POPUP */}
       {wrongOpen && (
@@ -299,7 +372,6 @@ export default function Game() {
           aria-modal="true"
           aria-labelledby="wrong-title-vi"
           onClick={(e) => {
-            // click nền đóng popup
             if (e.target === e.currentTarget) setWrongOpen(false);
           }}
         >
